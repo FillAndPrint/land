@@ -6,6 +6,7 @@
  <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+ <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
  <style>
  body { margin: 0; padding: 20px; background-color: #f4f6f8; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #111111; }
@@ -42,10 +43,15 @@
  }
  .report-container.unlocked-report::after { display: none !important; }
 
- .report-header { display: flex; justify-content: space-between; border-bottom: 2px solid #111111; padding-bottom: 12px; margin-bottom: 15px; }
+ .report-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #111111; padding-bottom: 12px; margin-bottom: 15px; }
  .report-header h1 { font-size: 20px; letter-spacing: 0.5px; margin: 0 0 4px 0; font-weight: 800; }
  .meta-text { font-size: 11px; color: #555555; margin: 2px 0; text-transform: uppercase; letter-spacing: 0.5px; }
- .drawing-canvas-area { width: 100%; height: 125mm; border: 1px solid #111111; display: block; margin-bottom: 15px; background: #ffffff; box-sizing: border-box; position: relative; overflow: hidden; cursor: grab; user-select: none; }
+ 
+ .qr-wrapper { display: flex; flex-direction: column; align-items: center; justify-content: center; }
+ .qr-code-box { width: 65px; height: 65px; background: #fff; display: block; }
+ .qr-code-box img { width: 100%; height: 100%; }
+
+ .drawing-canvas-area { width: 100%; height: 140mm; border: 1px solid #111111; display: block; margin-bottom: 15px; background: #ffffff; box-sizing: border-box; position: relative; overflow: hidden; cursor: grab; user-select: none; }
  .drawing-canvas-area:active { cursor: grabbing; }
  .cards-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 15px; }
  .card { background: #fafafa; border: 1px solid #e5e5e5; border-top: 3px solid #111111; padding: 8px; text-align: center; }
@@ -58,44 +64,9 @@
 
  .report-container * { word-spacing: 1px; letter-spacing: 0.2px; }
 
- /* New Buttons */
- .home-btn {
- position: fixed;
- top: 20px;
- left: 20px;
- background: #111111;
- color: white;
- padding: 10px 16px;
- border: none;
- border-radius: 4px;
- font-weight: 700;
- cursor: pointer;
- z-index: 10000;
- text-decoration: none;
- display: inline-flex;
- align-items: center;
- gap: 6px;
- }
+ .home-btn { position: fixed; top: 20px; left: 20px; background: #111111; color: white; padding: 10px 16px; border: none; border-radius: 4px; font-weight: 700; cursor: pointer; z-index: 10000; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; }
  .home-btn:hover { background: #333333; }
-
- .whatsapp-btn {
- position: fixed;
- bottom: 20px;
- right: 20px;
- background: #25D366;
- color: white;
- padding: 12px 18px;
- border: none;
- border-radius: 50px;
- font-weight: 700;
- cursor: pointer;
- z-index: 10000;
- text-decoration: none;
- display: inline-flex;
- align-items: center;
- gap: 8px;
- box-shadow: 0 4px 12px rgba(37, 211, 102, 0.4);
- }
+ .whatsapp-btn { position: fixed; bottom: 20px; right: 20px; background: #25D366; color: white; padding: 12px 18px; border: none; border-radius: 50px; font-weight: 700; cursor: pointer; z-index: 10000; text-decoration: none; display: inline-flex; align-items: center; gap: 8px; box-shadow: 0 4px 12px rgba(37, 211, 102, 0.4); }
  .whatsapp-btn:hover { background: #20ba5c; }
  </style>
 </head>
@@ -104,7 +75,6 @@
 <a href="https://fillandprint.github.io/" class="home-btn" target="_blank">🏠 Home</a>
 
 <div class="input-panel" id="controlPanel">
- <!-- ఇక్కడ మీ అసలు ఇన్‌పుట్ ప్యానెల్ అంతా ఉంది -->
  <div class="panel-row">
  <div class="input-group" style="flex: 1;"><label>Plot Shape</label>
  <select id="shapeType" onchange="toggleShapeMode()">
@@ -118,6 +88,12 @@
  <option value="m">Meters (m)</option>
  <option value="yd">Yards (yd)</option>
  <option value="cm">Centimeters (cm)</option>
+ </select>
+ </div>
+ <div class="input-group" style="flex: 1;"><label>Report Language (రిపోర్ట్ భాష)</label>
+ <select id="reportLang" onchange="updateReport()">
+  <option value="te">తెలుగు (Telugu)</option>
+  <option value="en">English</option>
  </select>
  </div>
  </div>
@@ -140,35 +116,33 @@
  </div>
 
  <div class="sliders-grid">
- <div class="slider-container"><label id="sliderLabel">Map Styling (Thickness & Font): 100%</label><input type="range" id="styleScaleSlider" class="slider-style" min="50" max="250" value="100" oninput="adjustMapStyling()"></div>
+ <div class="slider-container"><label id="sliderLabel">Map Styling (Thickness & Font): 100%</label><input type="range" id="styleScaleSlider" class="slider-style" min="25" max="250" value="100" oninput="adjustMapStyling()"></div>
  <div class="slider-container"><label id="rotLabel">Rotate: 0°</label><input type="range" id="rotSlider" class="slider-style" min="0" max="360" value="0" oninput="applyRotation()"></div>
  <div class="slider-container"><label id="zoomSliderLabel">Map Zoom Control: 100%</label><input type="range" id="mapZoomSlider" class="slider-style" min="10" max="500" value="100" oninput="adjustMapZoom()"></div>
+ <div class="slider-container" style="display: flex; flex-direction: column; justify-content: center;"><label style="margin-bottom: 8px;">Measured By (సర్వే చేసిన వ్యక్తి)</label><input type="text" id="measuredByInput" value="Surveyor" oninput="updateReport()" style="padding: 10px; border: 1px solid #cccccc; border-radius: 4px; font-size: 14px; width:100%; box-sizing:border-box;"></div>
  </div>
 </div>
 
 <div class="report-container" id="printableReportArea">
  <div class="report-header">
- <div><h1 id="reportTitle">QUADRILATERAL LAND REPORT</h1><p class="meta-text">Precision Engineering Geometry Engine</p></div>
- <div style="text-align: right;"><p class="meta-text"><strong>Date:</strong> 2026-07-11</p><p class="meta-text"><strong>Format:</strong> Scaled Vector Map</p></div>
+ <div><h1 id="reportTitle">QUADRILATERAL LAND REPORT</h1><p class="meta-text" id="engineSubTitle">Precision Engineering Geometry Engine</p></div>
+ <div class="qr-wrapper"><div class="qr-code-box" id="qrCodeContainer"></div></div>
+ <div style="text-align: right;"><p class="meta-text"><strong id="dateLabel">Date:</strong> 2026-07-14</p><p class="meta-text"><strong id="formatLabel">Format:</strong> Scaled Vector Map</p><p class="meta-text" style="margin-top: 4px;"><strong id="measuredByLabel">Measured By:</strong> <span id="measuredByName">Surveyor</span></p></div>
  </div>
  <div id="plotCanvas" class="drawing-canvas-area"><div class="zoom-instruction">Touch/Scroll to Zoom - Drag to Move</div></div>
  <div class="cards-grid" id="cardsContainer"></div>
  <div class="data-summary-section">
  <table class="survey-table">
- <thead><tr><th>Boundary Segment</th><th>Input Value Dimension</th><th>Geometric Base Mapping</th></tr></thead>
+ <thead id="tableHead"><tr><th>Boundary Segment</th><th>Input Value Dimension</th><th>Geometric Base Mapping</th></tr></thead>
  <tbody id="tableBody"></tbody>
  </table>
  <div id="techNote" class="calculation-note"></div>
  </div>
 </div>
 
-<!-- WhatsApp Button -->
-<a href="https://whatsapp.com/channel/0029VbCuEnALCoX8uX70zA3l" class="whatsapp-btn" target="_blank">
- 📢 WhatsApp Updates
-</a>
+<a href="https://whatsapp.com/channel/0029VbCuEnALCoX8uX70zA3l" class="whatsapp-btn" target="_blank">📢 WhatsApp Updates</a>
 
 <script>
- // ==================== మీ అసలు స్క్రిప్ట్ (అన్నీ ఇక్కడ ఉన్నాయి) ====================
  let isUnlocked = false; 
  let reportAmount = 49900; 
  let reportData = null;
@@ -186,8 +160,27 @@
  triangle: [{id:'AB',label:'Side AB'},{id:'BC',label:'Side BC'},{id:'AC',label:'Side CA'}]
  };
 
- function toggleShapeMode() { renderInputs(); isUnlocked = false; syncWatermarkUI(); }
- function toggleUnitMode() { renderInputs(); isUnlocked = false; syncWatermarkUI(); }
+ const translations = {
+ en: {
+ engineSubTitle: "Precision Engineering Geometry Engine", dateLabel: "Date:", formatLabel: "Format: Scaled Vector Map",
+ thSegment: "Boundary Segment", thValue: "Input Value Dimension", thMapping: "Geometric Base Mapping",
+ cardSqFt: "Square Feet", cardSqYd: "Square Yards", cardSqM: "Square Meters", cardGuntas: "Guntas (TS/AP)", cardAcres: "Acres", cardHectares: "Hectares",
+ segAB: "Segment AB", segBC: "Segment BC", segCD: "Segment CD", segDA: "Segment DA", segCA: "Segment CA", diagAC: "Diagonal AC",
+ mapBase: "Baseline Axis Mapping Vector", mapRight: "Right Bound Perimeter Boundary", mapTop: "Top Bound Boundary Component", mapLeft: "Left Closing Bound Alignment Line", mapClosing: "Closing Triangle Structural Vector", mapMatrix: "Structural Triangulation Matrix Segment",
+ noteFt: "* Calculations were performed using decimal feet converted from feet and inches.", titleQuad: "QUADRILATERAL LAND REPORT", titleTri: "TRIANGLE LAND REPORT", errInvalid: "The entered measurements cannot form a valid land shape.", measuredBy: "Measured By:"
+ },
+ te: {
+ engineSubTitle: "ప్రిసిషన్ ఇంజనీరింగ్ జియోమెట్రీ ఇంజన్", dateLabel: "తేదీ:", formatLabel: "ఫార్మాట్: స్కేల్డ్ వెక్టర్ మ్యాప్",
+ thSegment: "సరిహద్దు విభాగం", thValue: "ఇన్‌పుట్ కొలత వివరాలు", thMapping: "జ్యామితీయ మ్యాపింగ్ స్థానం",
+ cardSqFt: "చదరపు అడుగులు (Sq.Ft)", cardSqYd: "చదరపు గజాలు (Sq.Yds)", cardSqM: "చదరపు మీటర్లు (Sq.Mts)", cardGuntas: "కుంటలు (TS/AP)", cardAcres: "ఎకరాలు (Acres)", cardHectares: "హెక్టార్లు",
+ segAB: "విభాగం AB", segBC: "విభాగం BC", segCD: "విభాగం CD", segDA: "విభాగం DA", segCA: "విభాగం CA", diagAC: "కర్ణము AC (Diagonal)",
+ mapBase: "బేస్‌లైన్ యాక్సిస్ మ్యాపింగ్ వెక్టర్", mapRight: "కుడి వైపు సరిహద్దు రేఖ", mapTop: "పై వైపు సరిహద్దు భాగం", mapLeft: "ఎడమ వైపు ముగింపు సరిహద్దు రేఖ", mapClosing: "ముగింపు త్రిభుజ నిర్మాణ వెక్టర్", mapMatrix: "నిర్మాణాత్మక త్రిభుజాకార మాతృక విభాగం",
+ noteFt: "* ఫీట్లు మరియు అంగుళాల నుండి మార్చబడిన డెసిమల్ ఫీట్ ఉపయోగించి లెక్కలు చేయబడ్డాయి.", titleQuad: "చతుర్భుజ భూమి సర్వే నివేదిక", titleTri: "త్రిభుజ భూమి సర్వే నివేదిక", errInvalid: "నమోదు చేసిన కొలతలతో సరైన భూమి ఆకారం ఏర్పడదు.", measuredBy: "సర్వే చేసిన వారు:"
+ }
+ };
+
+ function toggleShapeMode() { renderInputs(); isUnlocked = false; syncWatermarkUI(); updateReport(); }
+ function toggleUnitMode() { renderInputs(); isUnlocked = false; syncWatermarkUI(); updateReport(); }
  function blockDecimalKey(e) { if(e.key==='.'||e.key===','||e.key==='e'||e.key==='-') e.preventDefault(); }
 
  function measureTextWidthHTML5Canvas(text, fontStyleString) {
@@ -220,30 +213,38 @@
  document.getElementById('plotCanvas').innerHTML = `<div class="zoom-instruction">Touch/Scroll to Zoom - Drag to Move</div>`;
  document.getElementById('cardsContainer').innerHTML = '';
  document.getElementById('tableBody').innerHTML = '';
+ document.getElementById('measuredByInput').value = 'Surveyor';
  reportData = null;
+ updateReport();
  }
 
  function rotatePoints(points, angleDeg, pivot) {
  const angleRad = angleDeg * (Math.PI / 180);
- const cos = Math.cos(angleRad);
- const sin = Math.sin(angleRad);
+ const cos = Math.cos(angleRad); const sin = Math.sin(angleRad);
  return points.map(p => {
- const dx = p[0] - pivot[0];
- const dy = p[1] - pivot[1];
+ const dx = p[0] - pivot[0]; const dy = p[1] - pivot[1];
  return [pivot[0] + (dx * cos - dy * sin), pivot[1] + (dx * sin + dy * cos)];
  });
  }
 
+ function isPointInsidePolygon(point, vs) {
+ const x = point[0], y = point[1]; let inside = false;
+ for (let i = 0, j = vs.length - 1; i < vs.length; j = i++) {
+ const xi = vs[i][0], yi = vs[i][1]; const xj = vs[j][0], yj = vs[j][1];
+ const intersect = ((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+ if (intersect) inside = !inside;
+ }
+ return inside;
+ }
+
  function calculateGeometry(shape, unit) {
  const isTriangleMode = (shape === 'triangle');
- const AB_val = getInputValue('AB', unit); 
- const BC_val = getInputValue('BC', unit); 
- const AC_val = getInputValue('AC', unit);
+ const AB_val = getInputValue('AB', unit); const BC_val = getInputValue('BC', unit); const AC_val = getInputValue('AC', unit);
  const AB = AB_val.decimal; const BC = BC_val.decimal; const AC = AC_val.decimal;
 
  if (AB <= 0 || BC <= 0 || AC <= 0 || !(AB + BC > AC && AB + AC > BC && BC + AC > AB)) return null;
 
- let CD = 0, DA = 0, CD_val = null, DA_val = null;
+ let CD = 0, DA = 0, CD_val = {decimal: 0, text: ""}, DA_val = {decimal: 0, text: ""};
  if (!isTriangleMode) {
  CD_val = getInputValue('CD', unit); DA_val = getInputValue('DA', unit);
  CD = CD_val.decimal; DA = DA_val.decimal;
@@ -267,12 +268,9 @@
  const pivot = [rawPoints[0][0], rawPoints[0][1]];
  const rotatedPoints = rotatePoints(rawPoints, currentRotation, pivot);
 
- const pA = rotatedPoints[0], pB = rotatedPoints[1], pC = rotatedPoints[2];
- const pD = isTriangleMode ? null : rotatedPoints[3];
-
  return {
  isTriangleMode, unit, AB_val, BC_val, AC_val, CD_val, DA_val,
- pA, pB, pC, pD,
+ pA: rotatedPoints[0], pB: rotatedPoints[1], pC: rotatedPoints[2], pD: isTriangleMode ? null : rotatedPoints[3],
  metrics: calculateArea(AB, BC, AC, CD, DA, isTriangleMode, unit)
  };
  }
@@ -303,14 +301,16 @@
  const autoFontSize = Math.max(8, Math.min(maxSpan * 0.025, 18));
  const autoStrokeMain = maxSpan * 0.003;
  const autoStrokeDim = autoStrokeMain * 0.6;
- const adaptiveOffset = Math.max(8, maxSpan * 0.18);
+ 
+ // టెక్స్ట్ మరియు రేఖకు మధ్య దూరం తగ్గించడానికి ఆఫ్‌సెట్ విలువను 0.18 నుండి 0.08 కి తగ్గించాము
+ const adaptiveOffset = Math.max(4, maxSpan * 0.08);
 
  function getVectors(p1, p2, isDiagonal = false) {
  const dx = p2[0] - p1[0], dy = p2[1] - p1[1];
  const len = Math.hypot(dx, dy) || 1;
  const ox = -dy / len, oy = dx / len;
  let offset = adaptiveOffset; 
- if (isDiagonal) offset = -(adaptiveOffset * 0.7); 
+ if (isDiagonal) offset = -(adaptiveOffset * 0.6); 
  else {
  const midPointOutside = [(p1[0]+p2[0])/2 + ox*offset, (p1[1]+p2[1])/2 + oy*offset];
  if (isPointInsidePolygon(midPointOutside, polyVertices)) offset = -offset; 
@@ -354,8 +354,7 @@
  let ang = Math.atan2(d2[1] - d1[1], d2[0] - d1[0]) * (180 / Math.PI); 
  if (ang > 90 || ang < -90) ang += 180;
  const tWidth = measureTextWidthHTML5Canvas(text, `bold ${fSize}px Arial`);
- const rectH = fSize * 1.45;
- const rectW = tWidth + (fSize * 0.7);
+ const rectH = fSize * 1.45; const rectW = tWidth + (fSize * 0.7);
  const arrowOffset = fSize * 0.32;
 
  return `<g stroke="#444444" stroke-width="${sDim}">
@@ -375,7 +374,7 @@
  `M ${geo.pA[0]} ${geo.pA[1]} L ${geo.pB[0]} ${geo.pB[1]} L ${geo.pC[0]} ${geo.pC[1]} Z` : 
  `M ${geo.pA[0]} ${geo.pA[1]} L ${geo.pB[0]} ${geo.pB[1]} L ${geo.pC[0]} ${geo.pC[1]} L ${geo.pD[0]} ${geo.pD[1]} Z`;
 
- return `<svg id="interactiveSvg" xmlns="http://www.w3.org/2000/svg" viewBox="${dynamicMinX} ${dynamicMinY} ${dynamicWidth} ${dynamicHeight}">
+ return `<svg id="interactiveSvg" xmlns="http://www.w3.org/2000/svg" viewBox="${dynamicMinX} ${dynamicMinY} ${dynamicWidth} ${dynamicHeight}" style="width:100%; height:100%;">
  <path d="${pathLine}" fill="#fcfcfc" stroke="#111111" stroke-width="${sMain}" stroke-linejoin="round"/>
  ${!geo.isTriangleMode ? `<line x1="${geo.pA[0]}" y1="${geo.pA[1]}" x2="${geo.pC[0]}" y2="${geo.pC[1]}" stroke="#ff3b30" stroke-width="${sDim}" stroke-dasharray="5,4"/>` : ''}
  ${buildSegment(geo.pA, geo.pB, box.bAB, geo.AB_val.text)} 
@@ -389,16 +388,37 @@
  <circle cx="${geo.pC[0]}" cy="${geo.pC[1]}" r="${sMain * 1.5}"/><text x="${geo.pC[0] + (fSize * 0.9)}" y="${geo.pC[1] - (fSize * 0.9)}">C</text>
  ${!geo.isTriangleMode ? `<circle cx="${geo.pD[0]}" cy="${geo.pD[1]}" r="${sMain * 1.5}"/><text x="${geo.pD[0] - (fSize * 1.2)}" y="${geo.pD[1] - (fSize * 0.9)}">D</text>` : ''}
  </g>
- </svg><div class="zoom-instruction">Touch/Scroll to Zoom - Drag to Move</div>`;
+ </svg>`;
  }
 
  function renderUI(isStylePreserve = false) {
  if (!reportData) return;
- const geo = reportData.geo;
- const box = reportData.box;
+ const geo = reportData.geo; const box = reportData.box;
+ const lang = document.getElementById('reportLang').value; const t = translations[lang];
 
- document.getElementById('reportTitle').innerText = geo.isTriangleMode ? "TRIANGLE LAND REPORT" : "QUADRILATERAL LAND REPORT";
- document.getElementById('techNote').innerText = geo.unit === 'ft' ? "* Calculations were performed using decimal feet converted from feet and inches." : "";
+ document.getElementById('reportTitle').innerText = geo.isTriangleMode ? t.titleTri : t.titleQuad;
+ document.getElementById('engineSubTitle').innerText = t.engineSubTitle;
+ document.getElementById('dateLabel').innerText = t.dateLabel;
+ document.getElementById('formatLabel').innerText = t.formatLabel;
+ document.getElementById('measuredByLabel').innerText = t.measuredBy;
+
+ const surveyorName = document.getElementById('measuredByInput').value.trim() || 'Surveyor';
+ document.getElementById('measuredByName').innerText = surveyorName;
+
+ const qrText = `ఈ నివేదికను ${surveyorName} fill and print వెబ్సైట్ లో రూపొందించారు https://fillandprint.github.io/`;
+ const container = document.getElementById('qrCodeContainer');
+ container.innerHTML = "";
+ if(window.QRCode) {
+     try {
+         new QRCode(container, {
+         text: qrText, width: 65, height: 65,
+         colorDark : "#000000", colorLight : "#ffffff",
+         correctLevel : QRCode.CorrectLevel.H
+         });
+     } catch(e) { console.log(e); }
+ }
+
+ document.getElementById('techNote').innerText = geo.unit === 'ft' ? t.noteFt : "";
 
  if (!isStylePreserve) {
  dynamicMinX = box.minX; dynamicMinY = box.minY;
@@ -406,37 +426,41 @@
  initialViewBox = { minX: dynamicMinX, minY: dynamicMinY, width: dynamicWidth, height: dynamicHeight };
  }
 
- document.getElementById('plotCanvas').innerHTML = buildSVG(geo, box);
+ document.getElementById('plotCanvas').innerHTML = buildSVG(geo, box) + `<div class="zoom-instruction">Touch/Scroll to Zoom - Drag to Move</div>`;
 
  const m = geo.metrics;
  document.getElementById('cardsContainer').innerHTML = `
- <div class="card"><div class="card-label">Square Feet</div><div class="card-value">${m.sqFt.toLocaleString(undefined,{maximumFractionDigits:2})}</div></div>
- <div class="card"><div class="card-label">Square Yards</div><div class="card-value">${m.sqYd.toLocaleString(undefined,{maximumFractionDigits:2})}</div></div>
- <div class="card"><div class="card-label">Square Meters</div><div class="card-value">${m.sqM.toLocaleString(undefined,{maximumFractionDigits:2})}</div></div>
- <div class="card"><div class="card-label">Guntas (TS/AP)</div><div class="card-value">${m.guntas.toFixed(4)}</div></div>
- <div class="card"><div class="card-label">Acres</div><div class="card-value">${m.acres.toFixed(5)}</div></div>
- <div class="card"><div class="card-label">Hectares</div><div class="card-value">${m.hectares.toFixed(5)}</div></div>`;
+ <div class="card"><div class="card-label">${t.cardSqFt}</div><div class="card-value">${m.sqFt.toLocaleString(undefined,{maximumFractionDigits:2})}</div></div>
+ <div class="card"><div class="card-label">${t.cardSqYd}</div><div class="card-value">${m.sqYd.toLocaleString(undefined,{maximumFractionDigits:2})}</div></div>
+ <div class="card"><div class="card-label">${t.cardSqM}</div><div class="card-value">${m.sqM.toLocaleString(undefined,{maximumFractionDigits:2})}</div></div>
+ <div class="card"><div class="card-label">${t.cardGuntas}</div><div class="card-value">${m.guntas.toFixed(4)}</div></div>
+ <div class="card"><div class="card-label">${t.cardAcres}</div><div class="card-value">${m.acres.toFixed(5)}</div></div>
+ <div class="card"><div class="card-label">${t.cardHectares}</div><div class="card-value">${m.hectares.toFixed(5)}</div></div>`;
 
- let tableRows = `<tr><td>Segment AB</td><td><b>${geo.AB_val.text}</b></td><td>Baseline Axis Mapping Vector</td></tr><tr><td>Segment BC</td><td><b>${geo.BC_val.text}</b></td><td>Right Bound Perimeter Boundary</td></tr>`;
+ document.getElementById('tableHead').innerHTML = `<tr><th>${t.thSegment}</th><th>${t.thValue}</th><th>${t.thMapping}</th></tr>`;
+
+ let tableRows = `<tr><td>${t.segAB}</td><td><b>${geo.AB_val.text}</b></td><td>${t.mapBase}</td></tr><tr><td>${t.segBC}</td><td><b>${geo.BC_val.text}</b></td><td>${t.mapRight}</td></tr>`;
  if (geo.isTriangleMode) { 
- tableRows += `<tr><td>Segment CA</td><td><b>${geo.AC_val.text}</b></td><td>Closing Triangle Structural Vector</td></tr>`; 
+ tableRows += `<tr><td>${t.segCA}</td><td><b>${geo.AC_val.text}</b></td><td>${t.mapClosing}</td></tr>`; 
  } else { 
- tableRows += `<tr><td>Segment CD</td><td><b>${geo.CD_val.text}</b></td><td>Top Bound Boundary Component</td></tr><tr><td>Segment DA</td><td><b>${geo.DA_val.text}</b></td><td>Left Closing Bound Alignment Line</td></tr><tr><td>Diagonal AC</td><td><b>${geo.AC_val.text}</b></td><td>Structural Triangulation Matrix Segment</td></tr>`; 
+ tableRows += `<tr><td>${t.segCD}</td><td><b>${geo.CD_val.text}</b></td><td>${t.mapTop}</td></tr><tr><td>${t.segDA}</td><td><b>${geo.DA_val.text}</b></td><td>${t.mapLeft}</td></tr><tr><td>${t.diagAC}</td><td><b>${geo.AC_val.text}</b></td><td>${t.mapMatrix}</td></tr>`; 
  }
  document.getElementById('tableBody').innerHTML = tableRows;
+ 
+ initPanAndZoom();
  }
 
  function updateReport() {
- isUnlocked = false; 
- syncWatermarkUI();
+ isUnlocked = false; syncWatermarkUI();
  document.getElementById('validationError').style.display = 'none';
 
  const shape = document.getElementById('shapeType').value;
  const unit = document.getElementById('inpUnit').value;
+ const lang = document.getElementById('reportLang').value;
 
  const geo = calculateGeometry(shape, unit);
  if (!geo) {
- document.getElementById('validationError').innerText = "The entered measurements cannot form a valid land shape.";
+ document.getElementById('validationError').innerText = translations[lang].errInvalid;
  document.getElementById('validationError').style.display = 'block';
  return;
  }
@@ -463,25 +487,19 @@
  const zoomValue = document.getElementById('mapZoomSlider').value;
  document.getElementById('zoomSliderLabel').innerText = `Map Zoom Control: ${zoomValue}%`;
  const factor = 100 / parseFloat(zoomValue);
- const centerX = dynamicMinX + dynamicWidth / 2;
- const centerY = dynamicMinY + dynamicHeight / 2;
- dynamicWidth = initialViewBox.width * factor;
- dynamicHeight = initialViewBox.height * factor;
- dynamicMinX = centerX - dynamicWidth / 2;
- dynamicMinY = centerY - dynamicHeight / 2;
- applyViewBoxTransform();
+ const centerX = dynamicMinX + dynamicWidth / 2; const centerY = dynamicMinY + dynamicHeight / 2;
+ dynamicWidth = initialViewBox.width * factor; dynamicHeight = initialViewBox.height * factor;
+ dynamicMinX = centerX - dynamicWidth / 2; dynamicMinY = centerY - dynamicHeight / 2;
+ const svg = document.getElementById('interactiveSvg');
+ if(svg) svg.setAttribute('viewBox', `${dynamicMinX} ${dynamicMinY} ${dynamicWidth} ${dynamicHeight}`);
  }
 
  function applyPromo() {
- const code = document.getElementById('promoCode').value.trim().toUpperCase();
- if (code === 'NEW100') {
- reportAmount = 0;
- isUnlocked = true;
- syncWatermarkUI();
+ if (document.getElementById('promoCode').value.trim().toUpperCase() === 'NEW100') {
+ reportAmount = 0; isUnlocked = true; syncWatermarkUI();
  alert("ప్రోమో కోడ్ అప్లై అయ్యింది! ఇప్పుడు Download PDF Report నొక్కండి.");
- } else {
- alert("తప్పుడు ప్రోమో కోడ్.");
- }
+ updateReport();
+ } else { alert("తప్పుడు ప్రోమో కోడ్."); }
  }
 
  function syncWatermarkUI() {
@@ -501,113 +519,95 @@
  }
  }
 
- function isPointInsidePolygon(point, vs) {
- const x = point[0], y = point[1];
- let inside = false;
- for (let i = 0, j = vs.length - 1; i < vs.length; j = i++) {
- const xi = vs[i][0], yi = vs[i][1];
- const xj = vs[j][0], yj = vs[j][1];
- const intersect = ((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
- if (intersect) inside = !inside;
- }
- return inside;
- }
-
- function applyViewBoxTransform() {
+ function initPanAndZoom() {
+ const container = document.getElementById('plotCanvas');
  const svg = document.getElementById('interactiveSvg');
- if(svg) svg.setAttribute('viewBox', `${dynamicMinX} ${dynamicMinY} ${dynamicWidth} ${dynamicHeight}`);
+ if (!container || !svg) return;
+
+ let isDragging = false; let startX, startY;
+
+ container.onmousedown = function(e) {
+ if (e.target.tagName === 'input' || e.target.tagName === 'select') return;
+ isDragging = true; startX = e.clientX; startY = e.clientY;
+ };
+
+ window.onmousemove = function(e) {
+ if (!isDragging) return;
+ const dx = e.clientX - startX; const dy = e.clientY - startY;
+ startX = e.clientX; startY = e.clientY;
+
+ const svgWidth = container.clientWidth; const svgHeight = container.clientHeight;
+ const scaleX = dynamicWidth / svgWidth; const scaleY = dynamicHeight / svgHeight;
+
+ dynamicMinX -= dx * scaleX; dynamicMinY -= dy * scaleY;
+ svg.setAttribute('viewBox', `${dynamicMinX} ${dynamicMinY} ${dynamicWidth} ${dynamicHeight}`);
+ };
+
+ window.onmouseup = function() { isDragging = false; };
+
+ container.onwheel = function(e) {
+ e.preventDefault();
+ const zoomFactor = e.deltaY > 0 ? 1.1 : 0.9;
+ const rect = container.getBoundingClientRect();
+ const mouseX = e.clientX - rect.left; const mouseY = e.getBoundingClientRect().top;
+
+ const svgWidth = container.clientWidth; const svgHeight = container.clientHeight;
+ const dataMouseX = dynamicMinX + (mouseX / svgWidth) * dynamicWidth;
+ const dataMouseY = dynamicMinY + ((e.clientY - rect.top) / svgHeight) * dynamicHeight;
+
+ dynamicWidth *= zoomFactor; dynamicHeight *= zoomFactor;
+ dynamicMinX = dataMouseX - (mouseX / svgWidth) * dynamicWidth;
+ dynamicMinY = dataMouseY - ((e.clientY - rect.top) / svgHeight) * dynamicHeight;
+
+ svg.setAttribute('viewBox', `${dynamicMinX} ${dynamicMinY} ${dynamicWidth} ${dynamicHeight}`);
+ };
  }
 
  async function triggerDirectjsPDFExport() {
  const report = document.getElementById("printableReportArea");
- if (!report || !reportData) {
- alert("Report Data లేదు. Update Preview నొక్కండి.");
- return;
- }
-
  const btn = document.querySelector('.btn-download');
  const originalText = btn.innerText;
- btn.innerText = "Generating PDF...";
- btn.disabled = true;
+ btn.innerText = "Generating PDF..."; btn.disabled = true;
 
  try {
  const wasUnlocked = isUnlocked;
  if (!wasUnlocked) report.classList.add('unlocked-report');
 
  const canvas = await html2canvas(report, {
- scale: 2.8,
- useCORS: true,
- allowTaint: true,
- backgroundColor: "#ffffff",
- logging: false,
- width: report.offsetWidth,
- height: report.offsetHeight,
- letterRendering : true
+ scale: 3, useCORS: true, allowTaint: true, backgroundColor: "#ffffff", logging: false
  });
 
- const imgData = canvas.toDataURL("image/jpeg", 0.96);
+ const imgData = canvas.toDataURL("image/jpeg", 0.98);
  const { jsPDF } = window.jspdf;
  const pdf = new jsPDF("p", "mm", "a4");
 
- const pdfWidth = 210;
- const pdfHeight = 297;
- const imgWidth = pdfWidth;
- const imgHeight = (canvas.height * imgWidth) / canvas.width;
-
- let heightLeft = imgHeight;
- let position = 0;
-
- pdf.addImage(imgData, "JPEG", 0, position, imgWidth, imgHeight);
- heightLeft -= pdfHeight;
-
- while (heightLeft > 0) {
- position = heightLeft - imgHeight;
- pdf.addPage();
- pdf.addImage(imgData, "JPEG", 0, position, imgWidth, imgHeight);
- heightLeft -= pdfHeight;
- }
-
+ pdf.addImage(imgData, "JPEG", 0, 0, 210, 297);
  pdf.save("Land_Survey_Report.pdf");
 
  if (!wasUnlocked) report.classList.remove('unlocked-report');
-
  } catch (err) {
  console.error(err);
  alert("PDF Error: " + err.message);
  } finally {
- btn.innerText = originalText;
- btn.disabled = false;
+ btn.innerText = originalText; btn.disabled = false;
  }
  }
 
  function handleDownloadWorkflow() {
- if (!reportData) {
- alert("ముందుగా Update Preview నొక్కండి!");
- return;
- }
- if (isUnlocked || reportAmount === 0) {
- triggerDirectjsPDFExport();
- } else {
- var options = {
- "key": "rzp_test_YOUR_KEY_HERE",
- "amount": reportAmount,
- "currency": "INR",
- "name": "Land Survey Engine",
- "handler": function () {
- isUnlocked = true;
- syncWatermarkUI();
- triggerDirectjsPDFExport();
- },
+ if (!reportData) { alert("ముందుగా Update Preview నొక్కండి!"); return; }
+ if (isUnlocked || reportAmount === 0) { triggerDirectjsPDFExport(); } else {
+ new Razorpay({
+ "key": "rzp_test_YOUR_KEY_HERE", "amount": reportAmount, "currency": "INR", "name": "Land Survey Engine",
+ "handler": function () { isUnlocked = true; syncWatermarkUI(); triggerDirectjsPDFExport(); },
  "theme": { "color": "#111111" }
- };
- new Razorpay(options).open();
+ }).open();
  }
  }
 
- window.onload = () => { 
- renderInputs(); 
- updateReport(); 
- };
+ window.addEventListener('load', () => {
+   renderInputs(); 
+   setTimeout(updateReport, 200); 
+ });
 </script>
 </body>
 </html>
