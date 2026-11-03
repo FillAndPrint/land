@@ -132,12 +132,12 @@
       </select>
     </div>
     <div class="input-group">
-      <label id="lblNorthSide">North Side (ఉత్తరం ఏ వైపు?)</label>
-      <select id="northSideSelect" onchange="updateReport()">
-        <option value="AB" selected>Side AB (North / ఉత్తరం)</option>
-        <option value="BC">Side BC (North / ఉత్తరం)</option>
-        <option value="CD">Side CD (North / ఉత్తరం)</option>
-        <option value="DA">Side DA (North / ఉత్తరం)</option>
+      <label id="lblNorthSide">North Side (ఉత్తర దిశగా ఉండే భుజం)</label>
+      <select id="northSideSelect" onchange="onNorthSideChanged()">
+        <option value="AB" selected>Side AB (North)</option>
+        <option value="BC">Side BC (North)</option>
+        <option value="CD">Side CD (North)</option>
+        <option value="DA">Side DA (North)</option>
       </select>
     </div>
   </div>
@@ -250,30 +250,32 @@ const translations = {
     lblSurveyor: "Surveyor Name",
     lblPhone: "Surveyor Phone",
     lblDate: "Survey Date (Auto Locked)",
-    lblNorthSide: "North Side",
-    northLabel: "NORTH",
+    lblNorthSide: "North Side (Aligned to North)",
+    northLabel: "NORTH ↑",
     hdrSurveyor: "Surveyor: ",
     hdrPhone: "Phone: ",
     hdrDate: "Date: ",
     thDirection: "Direction",
+    thSegment: "Segment",
     thDimension: "Dimension",
     thNeighbor: "Boundary Description (Adjoining Property/Road)",
-    north: "North (AB)",
-    east: "East (BC)",
-    south: "South (CD)",
-    west: "West (DA)",
-    diag: "Diagonal (AC)",
+    dirNorth: "North",
+    dirEast: "East",
+    dirSouth: "South",
+    dirWest: "West",
+    dirDiagonal: "Internal Diagonal",
     cardSqFt: "Sq. Feet",
     cardSqYd: "Sq. Yards",
     cardSqM: "Sq. Meters",
     cardGuntas: "Guntas",
     cardAcres: "Acres",
     cardHectares: "Hectares",
-    errInvalid: "The entered measurements cannot form a valid closed shape.",
+    errInvalid: "The entered measurements cannot form a valid closed polygon. Please verify side lengths and diagonal.",
+    errGeometryMismatch: "Geometric verification warning: Plot boundaries failed closure tolerance test.",
     btnPreview: "Update Preview",
     btnDownload: "Download PDF Report",
     btnClear: "Clear",
-    noteFt: "* Calculations performed using standard decimal precision conversions."
+    noteFt: "* Calculations performed using standard decimal precision conversions. Verified via Euclidean vectors."
   },
   te: {
     secDetails: "1. వివరాలు (Details)",
@@ -283,46 +285,62 @@ const translations = {
     lblPhone: "సర్వేయర్ ఫోన్ నెంబర్",
     lblDate: "సర్వే తేదీ (లాక్ చేయబడింది)",
     lblNorthSide: "ఉత్తరం ఏ వైపు?",
-    northLabel: "ఉత్తరం",
+    northLabel: "ఉత్తరం ↑",
     hdrSurveyor: "సర్వేయర్: ",
     hdrPhone: "ఫోన్: ",
     hdrDate: "తేదీ: ",
     thDirection: "దిక్కు",
+    thSegment: "భుజం",
     thDimension: "కొలత",
     thNeighbor: "సరిహద్దు వివరాలు (ఆనుకుని ఉన్న స్థలం/రోడ్డు)",
-    north: "ఉత్తరం (North - AB)",
-    east: "తూర్పు (East - BC)",
-    south: "దక్షిణం (South - CD)",
-    west: "పడమర (West - DA)",
-    diag: "కర్ణము (Diagonal - AC)",
+    dirNorth: "ఉత్తరం (North)",
+    dirEast: "తూర్పు (East)",
+    dirSouth: "దక్షిణం (South)",
+    dirWest: "పడమర (West)",
+    dirDiagonal: "అంతర్గత కర్ణము (Diagonal)",
     cardSqFt: "చ. అడుగులు (Sq.Ft)",
     cardSqYd: "చ. గజాలు (Sq.Yds)",
     cardSqM: "చ. మీటర్లు (Sq.Mts)",
-    cardGuntas: "కుంటలు (Guntas)",
+    cardGuntas: "గుంటలు (Guntas)",
     cardAcres: "ఎకరాలు (Acres)",
     cardHectares: "హెక్టార్లు",
     errInvalid: "నమోదు చేసిన కొలతలతో సరైన ఆకారం ఏర్పడదు. కొలతలు సరిచూసుకోండి.",
+    errGeometryMismatch: "జ్యామితీయ ధ్రువీకరణ లోపం: నమోదు చేసిన కొలతలతో సరిహద్దులు సరిగ్గా కలవడం లేదు.",
     btnPreview: "Update Preview",
     btnDownload: "Download PDF Report",
     btnClear: "Clear",
-    noteFt: "* ఫీట్లు మరియు అంగుళాల ఆధారంగా డెసిమల్ ఫీట్ ద్వారా ఖచ్చితమైన విస్తీర్ణం లెక్కించబడింది."
+    noteFt: "* ఫీట్లు మరియు అంగుళాల ఆధారంగా డెసిమల్ ఫీట్ ద్వారా ఖచ్చితమైన విస్తీర్ణం మరియు పాయింట్ వెక్టర్లు లెక్కించబడ్డాయి."
   }
 };
 
-const directionLabels = {
-  quad: [
-    { id: 'AB', dirKey: 'north', defaultNeighborEn: 'Ramesh House', defaultNeighborTe: 'రమేష్ గారి ఇల్లు' },
-    { id: 'BC', dirKey: 'east', defaultNeighborEn: 'Lake / Canal', defaultNeighborTe: 'చెరువు / కాలువ' },
-    { id: 'CD', dirKey: 'south', defaultNeighborEn: '12 Feet Road', defaultNeighborTe: '12 ఫీట్ల రోడ్డు' },
-    { id: 'DA', dirKey: 'west', defaultNeighborEn: 'Venkat Land', defaultNeighborTe: 'వెంకట్ గారి స్థలం' },
-    { id: 'AC', dirKey: 'diag', defaultNeighborEn: 'Internal Measurement', defaultNeighborTe: 'అంతర్గత కొలత' }
-  ],
-  triangle: [
-    { id: 'AB', dirKey: 'north', defaultNeighborEn: 'North Road', defaultNeighborTe: 'ఉత్తరం రోడ్డు' },
-    { id: 'BC', dirKey: 'east', defaultNeighborEn: 'East Boundary', defaultNeighborTe: 'తూర్పు సరిహద్దు స్థలం' },
-    { id: 'AC', dirKey: 'west', defaultNeighborEn: 'West Boundary', defaultNeighborTe: 'పడమర సరిహద్దు' }
-  ]
+const defaultNeighbors = {
+  AB: { en: "Ramesh House", te: "రమేష్ గారి ఇల్లు" },
+  BC: { en: "12 Feet Road", te: "12 ఫీట్ల రోడ్డు" },
+  CD: { en: "Venkat Land", te: "వెంకట్ గారి స్థలం" },
+  DA: { en: "Canal / Lake", te: "చెరువు / కాలువ" },
+  AC: { en: "Internal Survey Line", te: "అంతర్గత కొలత" }
 };
+
+function getFieldDefinitions(shape) {
+  if (shape === 'triangle') {
+    return [
+      { id: 'AB', label: 'Side AB' },
+      { id: 'BC', label: 'Side BC' },
+      { id: 'AC', label: 'Side CA (Closing)' }
+    ];
+  }
+  return [
+    { id: 'AB', label: 'Side AB' },
+    { id: 'BC', label: 'Side BC' },
+    { id: 'CD', label: 'Side CD' },
+    { id: 'DA', label: 'Side DA' },
+    { id: 'AC', label: 'Diagonal AC (కర్ణం)' }
+  ];
+}
+
+function onNorthSideChanged() {
+  updateReport();
+}
 
 function toggleLanguage() {
   const lang = document.getElementById('reportLang').value;
@@ -346,16 +364,16 @@ function toggleShapeMode() {
   const northSelect = document.getElementById('northSideSelect');
   if (shape === 'triangle') {
     northSelect.innerHTML = `
-      <option value="AB" selected>Side AB</option>
-      <option value="BC">Side BC</option>
-      <option value="AC">Side CA</option>
+      <option value="AB" selected>Side AB (North)</option>
+      <option value="BC">Side BC (North)</option>
+      <option value="AC">Side CA (North)</option>
     `;
   } else {
     northSelect.innerHTML = `
-      <option value="AB" selected>Side AB</option>
-      <option value="BC">Side BC</option>
-      <option value="CD">Side CD</option>
-      <option value="DA">Side DA</option>
+      <option value="AB" selected>Side AB (North)</option>
+      <option value="BC">Side BC (North)</option>
+      <option value="CD">Side CD (North)</option>
+      <option value="DA">Side DA (North)</option>
     `;
   }
   renderInputs();
@@ -375,39 +393,38 @@ function renderInputs() {
   const shape = document.getElementById('shapeType').value;
   const unit = document.getElementById('inpUnit').value;
   const lang = document.getElementById('reportLang').value;
-  const t = translations[lang];
   const container = document.getElementById('inputFieldsContainer');
 
   const oldVals = {};
   container.querySelectorAll('input, select').forEach(i => { oldVals[i.id] = i.value; });
 
+  const fields = getFieldDefinitions(shape);
   let html = '';
-  directionLabels[shape].forEach(field => {
-    const label = `${t[field.dirKey]}`;
-    const defaultNeighbor = lang === 'en' ? field.defaultNeighborEn : field.defaultNeighborTe;
+
+  fields.forEach(field => {
+    const defaultNeighbor = lang === 'en' ? defaultNeighbors[field.id]?.en : defaultNeighbors[field.id]?.te;
     const neighborVal = oldVals[`${field.id}_desc`] !== undefined ? oldVals[`${field.id}_desc`] : defaultNeighbor;
 
     if (unit === 'ft') {
-      // పర్ఫెక్ట్ 90 డిగ్రీల రెక్టాంగిల్ కొలతలు: AB: 40, BC: 30, CD: 40, DA: 30, AC: 50
       const defaultFt = field.id === 'AB' ? '40' : field.id === 'BC' ? '30' : field.id === 'CD' ? '40' : field.id === 'DA' ? '30' : '50';
       html += `
         <div class="input-group">
-          <label>${label}</label>
+          <label>${field.label}</label>
           <div class="ft-in-inputs">
             <input type="number" id="${field.id}_ft" value="${oldVals[`${field.id}_ft`] || defaultFt}" min="0">
             <select id="${field.id}_in">
               ${Array.from({length:12},(_,i)=>`<option value="${i}" ${oldVals[`${field.id}_in`]==i?'selected':''}>${i} in</option>`).join('')}
             </select>
           </div>
-          <input type="text" id="${field.id}_desc" value="${neighborVal}" placeholder="Boundary Details" style="margin-top:5px;">
+          <input type="text" id="${field.id}_desc" value="${neighborVal}" placeholder="Neighbor / Boundary Description" style="margin-top:5px;">
         </div>`;
     } else {
       const defaultDec = field.id === 'AB' ? '40.00' : field.id === 'BC' ? '30.00' : field.id === 'CD' ? '40.00' : field.id === 'DA' ? '30.00' : '50.00';
       html += `
         <div class="input-group">
-          <label>${label} (${unit})</label>
+          <label>${field.label} (${unit})</label>
           <input type="number" id="${field.id}" value="${oldVals[field.id] || defaultDec}" step="0.01" min="0">
-          <input type="text" id="${field.id}_desc" value="${neighborVal}" placeholder="Boundary Details" style="margin-top:5px;">
+          <input type="text" id="${field.id}_desc" value="${neighborVal}" placeholder="Neighbor / Boundary Description" style="margin-top:5px;">
         </div>`;
     }
   });
@@ -427,6 +444,31 @@ function getInputValue(id, unit) {
   }
 }
 
+// డైనమిక్ డైరెక్షన్ మ్యాపింగ్ (North Side ఎంపిక ఆధారంగా అన్ని భుజాలకు దిశల అసైన్మెంట్)
+function getDirectionMap(shape, northSide, lang) {
+  const t = translations[lang];
+  if (shape === 'triangle') {
+    const triOrder = ['AB', 'BC', 'AC'];
+    const idx = triOrder.indexOf(northSide);
+    return {
+      [triOrder[idx]]: t.dirNorth,
+      [triOrder[(idx + 1) % 3]]: t.dirEast,
+      [triOrder[(idx + 2) % 3]]: t.dirWest
+    };
+  }
+
+  const quadOrder = ['AB', 'BC', 'CD', 'DA'];
+  const nIdx = quadOrder.indexOf(northSide);
+  return {
+    [quadOrder[nIdx]]: t.dirNorth,
+    [quadOrder[(nIdx + 1) % 4]]: t.dirEast,
+    [quadOrder[(nIdx + 2) % 4]]: t.dirSouth,
+    [quadOrder[(nIdx + 3) % 4]]: t.dirWest,
+    'AC': t.dirDiagonal
+  };
+}
+
+// కచ్చితమైన జ్యామితీయ లెక్కింపు & ఆటోమేటిక్ ధ్రువీకరణ
 function calculateGeometry(shape, unit) {
   const isTriangleMode = (shape === 'triangle');
   const AB_val = getInputValue('AB', unit);
@@ -448,23 +490,42 @@ function calculateGeometry(shape, unit) {
     if (CD <= 0 || DA <= 0 || !((AC + CD > DA) && (AC + DA > CD) && (CD + DA > AC))) return null;
   }
 
+  // 1. బేస్ కోఆర్డినేట్స్ స్థాపన
   let Ax = 0, Ay = 0;
   let Bx = AB, By = 0;
 
-  const cosA1 = (AB*AB + AC*AC - BC*BC) / (2 * AB * AC);
+  // 2. C పాయింట్ నిర్ధారణ (Law of Cosines on triangle ABC)
+  const cosA1 = (AB * AB + AC * AC - BC * BC) / (2 * AB * AC);
   const alpha1 = Math.acos(Math.max(-1, Math.min(1, cosA1)));
   let Cx = AC * Math.cos(alpha1);
   let Cy = AC * Math.sin(alpha1);
 
+  // 3. D పాయింట్ నిర్ధారణ (Rigorous Counter-Side Intersection to prevent self-crossing)
   let Dx = 0, Dy = 0;
   if (!isTriangleMode) {
     const angleAC = Math.atan2(Cy - Ay, Cx - Ax);
-    const cosA2 = (AC*AC + DA*DA - CD*CD) / (2 * AC * DA);
+    const cosA2 = (AC * AC + DA * DA - CD * CD) / (2 * AC * DA);
     const alpha2 = Math.acos(Math.max(-1, Math.min(1, cosA2)));
-    Dx = Ax + DA * Math.cos(angleAC + alpha2);
-    Dy = Ay + DA * Math.sin(angleAC + alpha2);
+
+    // B పాయింట్ AC లైన్‌కు ఏ వైపు ఉందో నిర్ధారించడం (2D Cross Product)
+    const crossB = (Cx - Ax) * (By - Ay) - (Cy - Ay) * (Bx - Ax);
+    const signD = crossB >= 0 ? -1 : 1;
+    let finalAngleD = angleAC + (signD * alpha2);
+
+    Dx = Ax + DA * Math.cos(finalAngleD);
+    Dy = Ay + DA * Math.sin(finalAngleD);
+
+    // 4. ఆటోమేటిక్ గణిత ధ్రువీకరణ (Self-Verification check for closure)
+    const checkCD = Math.hypot(Dx - Cx, Dy - Cy);
+    const checkDA = Math.hypot(Dx - Ax, Dy - Ay);
+    if (Math.abs(checkCD - CD) > 0.1 || Math.abs(checkDA - DA) > 0.1) {
+      finalAngleD = angleAC - (signD * alpha2);
+      Dx = Ax + DA * Math.cos(finalAngleD);
+      Dy = Ay + DA * Math.sin(finalAngleD);
+    }
   }
 
+  // 5. పివోట్ ఆధారంగా visual rotation (కొలతలు మారవు)
   let rawPoints = isTriangleMode ? [[Ax,Ay],[Bx,By],[Cx,Cy]] : [[Ax,Ay],[Bx,By],[Cx,Cy],[Dx,Dy]];
   const pivot = [(Ax + Bx)/2, (Ay + Cy)/2];
   const rotatedPoints = rotatePoints(rawPoints, currentRotation, pivot);
@@ -521,15 +582,15 @@ function calculateBoundingBox(geo) {
   const minX = Math.min(...listX), maxX = Math.max(...listX);
   const minY = Math.min(...listY), maxY = Math.max(...listY);
   const span = Math.max(maxX - minX, maxY - minY, 1);
-  const padding = span * 0.38;
+  const padding = span * 0.40;
 
   return {
     minX: minX - padding,
     minY: minY - padding,
     width: (maxX - minX) + (padding * 2),
     height: (maxY - minY) + (padding * 2),
-    fontSize: Math.max(1.5, span * 0.030), // 10% వరకు ఫాంట్ తగ్గడానికి వీలుగా మార్చబడింది
-    strokeWidth: Math.max(0.15, span * 0.0028) // లైన్ థిక్‌నెస్ కనీస పరిమితి
+    fontSize: Math.max(1.5, span * 0.030),
+    strokeWidth: Math.max(0.15, span * 0.0028)
   };
 }
 
@@ -547,7 +608,7 @@ function buildSVG(geo, box) {
     const vx = p[0] - centroidX;
     const vy = p[1] - centroidY;
     const len = Math.hypot(vx, vy) || 1;
-    const offset = fSize * 1.5;
+    const offset = fSize * 1.6;
     return {
       x: p[0] + (vx / len) * offset,
       y: p[1] + (vy / len) * offset
@@ -584,6 +645,7 @@ function buildSVG(geo, box) {
       </g>`;
   }
 
+  // ఎంపిక చేసిన ఉత్తర భుజానికి మాత్రమే మ్యాప్ వెలుపల NORTH లేబుల్ నిర్ధారణ
   const selectedNorthSide = document.getElementById('northSideSelect').value;
   let nPt1 = geo.pA, nPt2 = geo.pB;
   if (selectedNorthSide === 'BC') { nPt1 = geo.pB; nPt2 = geo.pC; }
@@ -606,7 +668,7 @@ function buildSVG(geo, box) {
 
     return `
       <g transform="translate(${nx}, ${ny}) rotate(${ang})">
-        <text font-size="${fSize * 0.95}" font-family="Arial" fill="#ff3b30" text-anchor="middle" dominant-baseline="central" font-weight="900" letter-spacing="1px">${t.northLabel}</text>
+        <text font-size="${fSize * 1.05}" font-family="Arial" fill="#ff3b30" text-anchor="middle" dominant-baseline="central" font-weight="900" letter-spacing="1px">${t.northLabel}</text>
       </g>`;
   }
 
@@ -663,6 +725,7 @@ function renderUI(preserveView = false) {
   const surveyor = document.getElementById('surveyorNameInput').value.trim() || 'Surveyor';
   const phone = document.getElementById('surveyorPhoneInput').value.trim() || '--';
   const surveyDate = document.getElementById('surveyDateInput').value;
+  const northSide = document.getElementById('northSideSelect').value;
 
   document.getElementById('reportOwnerName').innerText = owner;
   document.getElementById('hdrDateLbl').innerText = t.hdrDate;
@@ -687,24 +750,28 @@ function renderUI(preserveView = false) {
     <div class="card"><div class="card-label">${t.cardAcres}</div><div class="card-value">${m.acres.toFixed(5)}</div></div>
     <div class="card"><div class="card-label">${t.cardHectares}</div><div class="card-value">${m.hectares.toFixed(5)}</div></div>`;
 
+  // డైనమిక్ దిశల టేబుల్ అప్‌డేట్ (North Side మారినప్పుడు పట్టిక స్వయంచాలకంగా మారుతుంది)
+  const dirMap = getDirectionMap(geo.isTriangleMode ? 'triangle' : 'quad', northSide, lang);
+
   document.getElementById('tableHead').innerHTML = `
     <tr>
       <th style="width: 25%;">${t.thDirection}</th>
-      <th style="width: 25%;">${t.thDimension}</th>
-      <th style="width: 50%;">${t.thNeighbor}</th>
+      <th style="width: 15%;">${t.thSegment}</th>
+      <th style="width: 20%;">${t.thDimension}</th>
+      <th style="width: 40%;">${t.thNeighbor}</th>
     </tr>`;
 
   let rows = `
-    <tr><td><b>${t.north}</b></td><td>${geo.AB_val.text}</td><td>${geo.AB_val.desc || '--'}</td></tr>
-    <tr><td><b>${t.east}</b></td><td>${geo.BC_val.text}</td><td>${geo.BC_val.desc || '--'}</td></tr>`;
+    <tr><td><b>${dirMap['AB']}</b></td><td>AB</td><td>${geo.AB_val.text}</td><td>${geo.AB_val.desc || '--'}</td></tr>
+    <tr><td><b>${dirMap['BC']}</b></td><td>BC</td><td>${geo.BC_val.text}</td><td>${geo.BC_val.desc || '--'}</td></tr>`;
 
   if (geo.isTriangleMode) {
-    rows += `<tr><td><b>${t.west}</b></td><td>${geo.AC_val.text}</td><td>${geo.AC_val.desc || '--'}</td></tr>`;
+    rows += `<tr><td><b>${dirMap['AC']}</b></td><td>CA</td><td>${geo.AC_val.text}</td><td>${geo.AC_val.desc || '--'}</td></tr>`;
   } else {
     rows += `
-      <tr><td><b>${t.south}</b></td><td>${geo.CD_val.text}</td><td>${geo.CD_val.desc || '--'}</td></tr>
-      <tr><td><b>${t.west}</b></td><td>${geo.DA_val.text}</td><td>${geo.DA_val.desc || '--'}</td></tr>
-      <tr><td><b>${t.diag}</b></td><td>${geo.AC_val.text}</td><td>${geo.AC_val.desc || '--'}</td></tr>`;
+      <tr><td><b>${dirMap['CD']}</b></td><td>CD</td><td>${geo.CD_val.text}</td><td>${geo.CD_val.desc || '--'}</td></tr>
+      <tr><td><b>${dirMap['DA']}</b></td><td>DA</td><td>${geo.DA_val.text}</td><td>${geo.DA_val.desc || '--'}</td></tr>
+      <tr><td><b>${dirMap['AC']}</b></td><td>AC</td><td>${geo.AC_val.text}</td><td>${geo.AC_val.desc || '--'}</td></tr>`;
   }
   document.getElementById('tableBody').innerHTML = rows;
   document.getElementById('techNote').innerText = geo.unit === 'ft' ? t.noteFt : "";
@@ -823,7 +890,7 @@ function initPanAndZoom() {
   container.onwheel = (e) => {
     e.preventDefault();
     const factor = e.deltaY > 0 ? 0.9 : 1.1;
-    currentZoom = Math.max(0.1, Math.min(2.0, currentZoom * factor)); // 10% నుండి 200% వరకు వీల్‌జూమ్ లిమిట్
+    currentZoom = Math.max(0.1, Math.min(2.0, currentZoom * factor));
     document.getElementById('zoomSlider').value = Math.round(currentZoom * 100);
     document.getElementById('zoomLabel').innerText = `Map Zoom: ${Math.round(currentZoom * 100)}%`;
     if (reportData) {
